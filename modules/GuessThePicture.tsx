@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { generateGameRound } from '../services/geminiService';
 import type { GameRound, GameStatus, GameCategory } from '../types';
@@ -10,6 +9,56 @@ const CategoryButton: React.FC<{ onClick: () => void; label: string; colorClasse
         {label}
     </button>
 );
+
+// Function to play sound effects using Web Audio API
+const playSound = (type: 'correct' | 'incorrect') => {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) {
+      console.warn("Web Audio API is not supported in this browser.");
+      return;
+    }
+    const audioCtx = new AudioContext();
+    const gainNode = audioCtx.createGain();
+    gainNode.connect(audioCtx.destination);
+  
+    if (type === 'correct') {
+      // A cheerful, rising arpeggio (e.g., C4, E4, G4)
+      const frequencies = [261.63, 329.63, 392.00]; // C4, E4, G4
+      const now = audioCtx.currentTime;
+  
+      frequencies.forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        osc.connect(gainNode);
+        osc.start(now + i * 0.1);
+        osc.stop(now + i * 0.1 + 0.15);
+      });
+  
+      gainNode.gain.setValueAtTime(0.3, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+      
+      setTimeout(() => audioCtx.close(), 500);
+    } else if (type === 'incorrect') {
+      // A gentle 'uh-oh' sound
+      const oscillator = audioCtx.createOscillator();
+      oscillator.type = 'triangle'; // Softer tone
+      oscillator.connect(gainNode);
+      
+      const now = audioCtx.currentTime;
+      gainNode.gain.setValueAtTime(0.4, now);
+      
+      oscillator.frequency.setValueAtTime(196.00, now); // G3
+      oscillator.frequency.linearRampToValueAtTime(185.00, now + 0.15); // F#3
+      
+      oscillator.start(now);
+      oscillator.stop(now + 0.2);
+  
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+  
+      setTimeout(() => audioCtx.close(), 400);
+    }
+};
 
 const GuessThePicture: React.FC = () => {
   const [category, setCategory] = useState<GameCategory | null>(null);
@@ -45,8 +94,10 @@ const GuessThePicture: React.FC = () => {
     setSelectedAnswer(option);
     if (option === gameRound?.correctAnswer) {
       setStatus('correct');
+      playSound('correct');
     } else {
       setStatus('incorrect');
+      playSound('incorrect');
     }
   };
   
